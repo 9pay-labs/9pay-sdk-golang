@@ -93,6 +93,86 @@ func (c *Client) VerifyChecksum(data, checksum string) bool {
 	return c.Signer.VerifyChecksum(data, checksum)
 }
 
+func (c *Client) PayerAuth(req *models.PayerAuthRequest) (*models.PayerAuthResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	path := consts.MchPayerAuth
+	var res models.PayerAuthResponse
+	if err := c.callAPIMch("POST", path, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (c *Client) Authorize(req *models.AuthorizeRequest) (*models.AuthorizeResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	path := consts.MchAuthorize
+
+	var res models.AuthorizeResponse
+	if err := c.callAPIMch("POST", path, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (c *Client) Capture(req *models.CaptureRequest) (*models.CaptureResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	path := consts.MchCapture
+
+	var res models.CaptureResponse
+	if err := c.callAPIMch("POST", path, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (c *Client) ReverseAuth(
+	req *models.ReverseAuthRequest,
+) (*models.ReverseAuthResponse, error) {
+
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	path := consts.MchReverseAuth
+
+	var res models.ReverseAuthResponse
+	if err := c.callAPIMch("POST", path, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (c *Client) RefundCreate(
+	req *models.RefundCreateRequest,
+) (*models.RefundCreateResponse, error) {
+
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	path := consts.MchRefundCreate
+
+	var res models.RefundCreateResponse
+	if err := c.callAPI("POST", path, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 func (c *Client) callAPI(method, path string, req models.IBaseRequest, res interface{}) error {
 	ts := time.Now().Unix()
 	buf := &bytes.Buffer{}
@@ -115,7 +195,6 @@ func (c *Client) callAPI(method, path string, req models.IBaseRequest, res inter
 	if err != nil {
 		return err
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Date", fmt.Sprintf("%d", ts))
 	authHeader := fmt.Sprintf(
@@ -125,6 +204,61 @@ func (c *Client) callAPI(method, path string, req models.IBaseRequest, res inter
 	)
 	httpReq.Header.Set("Authorization", authHeader)
 
+	resp, err := c.HttpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("http error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return json.Unmarshal(bodyBytes, res)
+}
+
+func (c *Client) callAPIMch(method, path string, req models.IBaseRequest, res interface{}) error {
+	ts := time.Now().Unix()
+
+	dataMap := req.ToMap()
+
+	jsonBytes, err := json.Marshal(dataMap)
+	if err != nil {
+		return err
+	}
+
+	encodedJSON := url.QueryEscape(string(jsonBytes))
+	canonicalPayload := "json=" + encodedJSON
+
+	fullUrl := c.Config.Endpoint + path
+
+	stringToSign := fmt.Sprintf(
+		"%s\n%s\n%d\n%s",
+		method,
+		fullUrl,
+		ts,
+		canonicalPayload,
+	)
+
+	signature := c.Signer.Sign(stringToSign)
+
+	httpReq, err := http.NewRequest(method, fullUrl, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Date", fmt.Sprintf("%d", ts))
+	httpReq.Header.Set(
+		"Authorization",
+		fmt.Sprintf(
+			"Signature Algorithm=HS256,Credential=%s,SignedHeaders=,Signature=%s",
+			c.Config.MerchantKey,
+			signature,
+		),
+	)
+
+	// 6. Send request
 	resp, err := c.HttpClient.Do(httpReq)
 	if err != nil {
 		return err
