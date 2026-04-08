@@ -39,7 +39,7 @@ func main() {
         "your-merchant-key",
         "your-secret-key",
         "your-checksum-key",
-        "https://sandbox.9pay.mobi",
+        "9pay-domain",
     )
 
     // Create payment URL

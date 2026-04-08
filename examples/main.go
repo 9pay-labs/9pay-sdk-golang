@@ -15,12 +15,12 @@ func main() {
 	// const MerchantKey =  os.Getenv("NINEPAY_MERCHANT_KEY") // "pxxxw"
 	// const SecretKey = os.Getenv("NINEPAY_SECRET_KEY") //"narlsaxxxxxxxxxxxxAtvJgAKSiQOg"
 	// const CheckSum = os.Getenv("NINEPAY_CHECKSUM_KEY") //"s6KiGBywxxxxxxxxxxxxxxsx4QHM2YWzLC"
-	// const Endpoint = os.Getenv("NINEPAY_ENDPOINT") // https://xxxxx.9pay.mobi
+	// const Endpoint = os.Getenv("NINEPAY_ENDPOINT")
 
 	const MerchantKey = "pxxxw"
 	const SecretKey = "narlsaxxxxxxxxxxxxAtvJgAKSiQOg"
 	const CheckSum = "s6KiGBywxxxxxxxxxxxxxxsx4QHM2YWzLC"
-	const Endpoint = "https://xxxxx.9pay.mobi"
+	const Endpoint = ""
 
 	client := ninepay.New(MerchantKey, SecretKey, CheckSum, Endpoint)
 	// // 2. Tạo Link Thanh Toán
